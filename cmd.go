@@ -4,6 +4,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var _ Commander = new(Cmd)
+
 type Commander interface {
 	Exec(vm *VM) error
 	Line() int
@@ -19,12 +21,12 @@ type Cmd struct {
 func NewCmd(name string, desc string, line int) *Cmd {
 	return &Cmd{
 		name: name,
-		line:line,
+		line: line,
 		cmd:  &cobra.Command{Use: name, Short: desc},
 	}
 }
 
-func (c *Cmd) Run(vm *VM) error {
+func (c *Cmd) Exec(vm *VM) error {
 	panic("must impl")
 }
 

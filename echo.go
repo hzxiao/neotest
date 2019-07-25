@@ -1,13 +1,14 @@
 package neotest
 
 import (
-	"bufio"
-	"github.com/k0kubun/pp"
+	"fmt"
+	"github.com/hzxiao/goutil"
 	"github.com/spf13/cobra"
 )
 
 type EchoCmd struct {
 	*Cmd
+	exprList []ExprNode
 }
 
 func NewEchoCmd(line int) *EchoCmd {
@@ -16,17 +17,24 @@ func NewEchoCmd(line int) *EchoCmd {
 	}
 }
 
-func parseEchoCmd(line int, buf *bufio.Scanner) (*EchoCmd, error) {
-	return nil, nil
-}
-
-func (echo *EchoCmd) Exec(vm *VM) error  {
+func (echo *EchoCmd) Exec(vm *VM) error {
 	echo.cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		for _, arg := range args {
-			pp.Printf("%v ", arg)
+			fmt.Printf("%v ", arg)
 		}
-		pp.Println()
+		fmt.Println()
 		return nil
 	}
-	return nil
+
+	var values []string
+	for _, expr := range echo.exprList {
+		result, err := expr.Run(vm)
+		if err != nil {
+			return err
+		}
+
+		values = append(values, goutil.String(result))
+	}
+	echo.cmd.SetArgs(values)
+	return echo.cmd.Execute()
 }
