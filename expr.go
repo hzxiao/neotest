@@ -1,8 +1,9 @@
 package neotest
 
 import (
-	"fmt"
 	"github.com/hzxiao/goutil"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -14,9 +15,12 @@ const (
 	Float
 	String
 	Identity
-	Variable
 	SubCommand
 )
+
+type Variate interface {
+	Variables() []string
+}
 
 type ExprNode interface {
 	SetParent(ExprNode)
@@ -43,13 +47,42 @@ func (*exprBackground) Run(vm *VM) (interface{}, error) { return nil, nil }
 
 func (*exprBackground) Type() ExprType { return Invalid }
 
-type stringExpr struct {
+var _ Variate = new(varExpr)
+var _ Variate = new(boolExpr)
+var _ Variate = new(stringExpr)
+var _ Variate = new(floatExpr)
+
+type varExpr struct {
 	exprBackground
-	val interface{}
+	val string
+}
+
+func (expr *varExpr) Variables() []string {
+	all := regexp.MustCompile(`\$\([a-zA-Z_][a-zA-Z0-9_]*\)`).FindAllString(expr.val, -1)
+
+	var IDs []string
+	for _, v := range all {
+		IDs = append(IDs, v[2:len(v)-1])
+	}
+
+	return IDs
+}
+
+type stringExpr struct {
+	varExpr
+}
+
+func newStringExpr(val string) ExprNode {
+	return &stringExpr{varExpr{val: val}}
 }
 
 func (expr *stringExpr) Run(vm *VM) (interface{}, error) {
-	return nil, nil
+	ID, yes := isVar(expr.val)
+	if yes {
+		return vm.VarByType(ID, "string")
+	}
+
+	return expr.val, nil
 }
 
 func (expr *stringExpr) Type() ExprType {
@@ -57,23 +90,19 @@ func (expr *stringExpr) Type() ExprType {
 }
 
 type boolExpr struct {
-	exprBackground
-	val interface{}
+	varExpr
+}
+
+func newBoolExpr(val string) ExprNode {
+	return &boolExpr{varExpr{val: val}}
 }
 
 func (expr *boolExpr) Run(vm *VM) (interface{}, error) {
 	ID, yes := isVar(expr.val)
 	if yes {
-		v, exist := vm.Var(ID)
-		if !exist {
-			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
-		}
-		if "bool" != fmt.Sprintf("%T", v) {
-			return nil, fmt.Errorf("cannot use '%v' (type %T) as bool", ID, v)
-		}
-
-		return v, nil
+		return vm.VarByType(ID, "bool")
 	}
+
 	return goutil.String(expr.val) == "true", nil
 }
 
@@ -94,6 +123,28 @@ func (expr *IDExpr) Type() ExprType {
 	return Identity
 }
 
+type floatExpr struct {
+	varExpr
+}
+
+func newFloatExpr(val string) ExprNode {
+	return &floatExpr{varExpr{val: val}}
+}
+
+func (expr *floatExpr) Run(vm *VM) (interface{}, error) {
+	ID, yes := isVar(expr.val)
+	if yes {
+		return vm.VarByType(ID, "float64")
+	}
+
+	v, _ := strconv.ParseFloat(expr.val, 64)
+	return v, nil
+}
+
+func (expr *floatExpr) Type() ExprType {
+	return Float
+}
+
 func isVar(v interface{}) (ID string, yes bool) {
 	text, ok := v.(string)
 	if !ok {
@@ -101,7 +152,7 @@ func isVar(v interface{}) (ID string, yes bool) {
 	}
 	if strings.HasPrefix(text, "$(") && strings.HasSuffix(text, ")") {
 		l := len(text)
-		ID = text[2:l-1]
+		ID = text[2 : l-1]
 		yes = true
 		return
 	}

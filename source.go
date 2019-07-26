@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -61,6 +62,8 @@ func (src *Source) ParseCmd(text string) (Commander, error) {
 	switch cmdName {
 	case "echo":
 		return src.parseEchoCmd(src.curLine, scan)
+	case "let":
+		return src.parseLetCmd(src.curLine, scan)
 	default:
 		return nil, fmt.Errorf("line %v: unknown cmd: %v", src.curLine, cmdName)
 	}
@@ -85,6 +88,41 @@ func (src *Source) parseEchoCmd(line int, buf *bufio.Scanner) (*EchoCmd, error) 
 	return echo, nil
 }
 
+func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
+	let := NewLetCmd(line)
+	for buf.Scan() {
+		text := buf.Text()
+		expr, err := src.ParseExpr(text)
+		if err != nil {
+			return nil, err
+		}
+
+		let.exprList = append(let.exprList, expr)
+	}
+
+	if len(let.exprList) != 2 {
+		return nil, fmt.Errorf("num of expr must be 2, but it is %v", len(let.exprList))
+	}
+	if let.exprList[0].Type() != Identity {
+		return nil, fmt.Errorf("invaild cmd syntax: the first argument should be @ID")
+	}
+
+	//TODO: check var type
+	second := let.exprList[1]
+	switch second.Type() {
+	case Bool, Float, String:
+		IDs := second.(Variate).Variables()
+		if len(IDs) == 0 {
+
+		}
+	case SubCommand:
+		//TODO: handle sub cmd expr
+	default:
+		return nil, fmt.Errorf("invalid cmd syntax: invalid second argument type")
+	}
+	return let, nil
+}
+
 //ParseExpr parse expression
 func (src *Source) ParseExpr(text string) (ExprNode, error) {
 	text = strings.Trim(text, " \t\n")
@@ -95,20 +133,28 @@ func (src *Source) ParseExpr(text string) (ExprNode, error) {
 	var expr ExprNode
 	switch {
 	case text == "true" || text == "false":
-		expr = &boolExpr{val: text}
-	case strings.EqualFold(text, "\"") && strings.HasSuffix(text, "\""):
-		expr = &stringExpr{val: strings.Trim(text, "\"")}
+		expr = newBoolExpr(text)
+	case strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\""):
+		expr = newStringExpr(strings.Trim(text, "\""))
 	case strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'"):
-		expr = &stringExpr{val: strings.Trim(text, "'")}
+		expr = newStringExpr(strings.Trim(text, "'"))
 	case strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`"):
 		//TODO: sub cmd expr
 
 	case strings.HasPrefix(text, "$(") && strings.HasSuffix(text, ")"): //var
-
+		ID := text[2 : len(text)-1]
+		if !ValidID(ID) {
+			return nil, fmt.Errorf("invalid variable: %v", text)
+		}
+		return src.parseExprByVqr(text)
 	case strings.HasPrefix(text, "@"): //ID
 		return src.parseIDExpr(text)
 	default:
-		//TODO: check valid float format
+		//check valid float format
+		_, err := strconv.ParseFloat(text, 64)
+		if err == nil {
+			return newFloatExpr(text), nil
+		}
 		return nil, fmt.Errorf("invalid expression: %v", text)
 	}
 
@@ -122,6 +168,27 @@ func (src *Source) parseIDExpr(ID string) (ExprNode, error) {
 	}
 
 	return &IDExpr{ID: ID}, nil
+}
+
+func (src *Source) parseExprByVqr(IDFull string) (ExprNode, error) {
+	ID, _ := isVar(IDFull)
+	Type, exist := src.varType[ID]
+	if !exist {
+		return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+	}
+
+	var expr ExprNode
+	switch Type {
+	case "bool":
+		expr = newBoolExpr(IDFull)
+	case "string":
+		expr = newStringExpr(IDFull)
+	case "float":
+		expr = newFloatExpr(IDFull)
+	default:
+		return nil, fmt.Errorf("wrong variable type: %v", Type)
+	}
+	return expr, nil
 }
 
 func (src *Source) ReadString(delim byte) (string, error) {

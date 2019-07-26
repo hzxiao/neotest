@@ -13,9 +13,10 @@ type Commander interface {
 }
 
 type Cmd struct {
-	name string
-	line int
-	cmd  *cobra.Command
+	name     string
+	line     int
+	cmd      *cobra.Command
+	exprList []ExprNode
 }
 
 func NewCmd(name string, desc string, line int) *Cmd {

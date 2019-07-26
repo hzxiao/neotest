@@ -55,6 +55,18 @@ func (vm *VM) StoreVar(ID string, v interface{}) error {
 	return nil
 }
 
+func (vm *VM) VarByType(ID string, typ string) (interface{}, error) {
+	v, exist := vm.Var(ID)
+	if !exist {
+		return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+	}
+	if typ != fmt.Sprintf("%T", v) {
+		return nil, fmt.Errorf("cannot use '%v' (type %T) as %v", ID, v, typ)
+	}
+
+	return v, nil
+}
+
 func (vm *VM) Run() error {
 	var err error
 	for _, cmd := range vm.commands {
