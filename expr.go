@@ -1,6 +1,7 @@
 package neotest
 
 import (
+	"fmt"
 	"github.com/hzxiao/goutil"
 	"regexp"
 	"strconv"
@@ -82,7 +83,21 @@ func (expr *stringExpr) Run(vm *VM) (interface{}, error) {
 		return vm.VarByType(ID, "string")
 	}
 
-	return expr.val, nil
+	val := expr.val
+
+	//find contain var
+	allIndex := regexp.MustCompile(`\$\([a-zA-Z_][a-zA-Z0-9_]*\)`).FindAllStringIndex(expr.val, -1)
+	for _, idx := range allIndex {
+		ID, _ := isVar(expr.val[idx[0]:idx[1]])
+		v, exist := vm.StringV(ID)
+		if !exist {
+			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+		}
+
+		val = strings.Replace(val, expr.val[idx[0]:idx[1]], v, 1)
+	}
+
+	return val, nil
 }
 
 func (expr *stringExpr) Type() ExprType {

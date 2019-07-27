@@ -1,3 +1,15 @@
 let @a true
 
 echo $(a)
+
+let @b $(a)
+
+echo $(b)
+
+let @a false
+
+echo $(a)
+
+let @c "a:$(a)"
+
+echo $(c)

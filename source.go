@@ -107,19 +107,32 @@ func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 		return nil, fmt.Errorf("invaild cmd syntax: the first argument should be @ID")
 	}
 
-	//TODO: check var type
+	ID := let.exprList[0].(*IDExpr).ID
+
 	second := let.exprList[1]
+	var vType string
 	switch second.Type() {
 	case Bool, Float, String:
 		IDs := second.(Variate).Variables()
-		if len(IDs) == 0 {
-
+		for _, id := range IDs {
+			if _, ok := src.varType[id]; !ok {
+				return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+			}
+		}
+		if second.Type() == Bool {
+			vType = "bool"
+		} else if second.Type() == Float {
+			vType = "float"
+		} else {
+			vType = "string"
 		}
 	case SubCommand:
 		//TODO: handle sub cmd expr
 	default:
 		return nil, fmt.Errorf("invalid cmd syntax: invalid second argument type")
 	}
+
+	src.varType[ID] = vType
 	return let, nil
 }
 
@@ -135,9 +148,9 @@ func (src *Source) ParseExpr(text string) (ExprNode, error) {
 	case text == "true" || text == "false":
 		expr = newBoolExpr(text)
 	case strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\""):
-		expr = newStringExpr(strings.Trim(text, "\""))
+		return src.parseStringExpr(strings.Trim(text, "\""))
 	case strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'"):
-		expr = newStringExpr(strings.Trim(text, "'"))
+		return src.parseStringExpr(strings.Trim(text, "'"))
 	case strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`"):
 		//TODO: sub cmd expr
 
@@ -189,6 +202,23 @@ func (src *Source) parseExprByVqr(IDFull string) (ExprNode, error) {
 		return nil, fmt.Errorf("wrong variable type: %v", Type)
 	}
 	return expr, nil
+}
+
+//parseStringExpr check var if text contains
+func (src *Source) parseStringExpr(text string) (ExprNode, error) {
+	all := regexp.MustCompile(`\$\(.*?\)`).FindAllString(text, -1)
+	for _, v := range all {
+		ID, yes := isVar(v)
+		if !yes {
+			return nil, fmt.Errorf("invalid variable: %v", v)
+		}
+		_, ok := src.varType[ID]
+		if !ok {
+			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+		}
+	}
+
+	return newStringExpr(text), nil
 }
 
 func (src *Source) ReadString(delim byte) (string, error) {
