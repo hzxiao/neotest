@@ -10,6 +10,10 @@ let @a false
 
 echo $(a)
 
+# define string value contains space
 let @c "a: $(a)"
 
 echo $(c)
+
+let @e "$(a)"
+echo $(e)

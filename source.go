@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+//Source parse source file into commands
 type Source struct {
 	buf     *bufio.Scanner
 	curLine int
@@ -41,9 +42,12 @@ func (src *Source) Parse() ([]Commander, error) {
 		if text == "" { //empty content line
 			continue
 		}
+		if strings.HasPrefix(text, "#") { //annotation
+			continue
+		}
 		cmd, err := src.ParseCmd(text)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("line: %v, err: %v", src.curLine, err)
 		}
 
 		cmds = append(cmds, cmd)
@@ -65,7 +69,7 @@ func (src *Source) ParseCmd(text string) (Commander, error) {
 	case "let":
 		return src.parseLetCmd(src.curLine, scan)
 	default:
-		return nil, fmt.Errorf("line %v: unknown cmd: %v", src.curLine, cmdName)
+		return nil, fmt.Errorf("unknown cmd: %v", cmdName)
 	}
 	return nil, nil
 }
@@ -240,7 +244,7 @@ func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		return
 	}
 
-	var findEndpoint = func(c byte) (int, []byte, bool){
+	var findEndpoint = func(c byte) (int, []byte, bool) {
 		if i := bytes.IndexByte(token, c); i >= 0 {
 			for j := i + 1; j < len(data); j++ {
 				if data[j] == c {
@@ -258,7 +262,7 @@ func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	}
 	//find sub cmd expr
 	var ok bool
-	advance,token, ok = findEndpoint('`')
+	advance, token, ok = findEndpoint('`')
 	if ok {
 		return
 	}
