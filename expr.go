@@ -78,11 +78,6 @@ func newStringExpr(val string) ExprNode {
 }
 
 func (expr *stringExpr) Run(vm *VM) (interface{}, error) {
-	ID, yes := isVar(expr.val)
-	if yes {
-		return vm.VarByType(ID, "string")
-	}
-
 	val := expr.val
 
 	//find contain var
