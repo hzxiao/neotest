@@ -10,6 +10,6 @@ let @a false
 
 echo $(a)
 
-let @c "a:$(a)"
+let @c "a: $(a)"
 
 echo $(c)

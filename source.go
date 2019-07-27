@@ -240,22 +240,32 @@ func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		return
 	}
 
-	var i int
-	if i = bytes.IndexByte(token, '`'); i < 0 {
+	var findEndpoint = func(c byte) (int, []byte, bool){
+		if i := bytes.IndexByte(token, c); i >= 0 {
+			for j := i + 1; j < len(data); j++ {
+				if data[j] == c {
+					return j + 1, data[i : j+1], true
+				}
+			}
+
+			if atEOF {
+				return len(data), data, true
+			}
+
+			return 0, nil, true
+		}
+		return advance, token, false
+	}
+	//find sub cmd expr
+	var ok bool
+	advance,token, ok = findEndpoint('`')
+	if ok {
 		return
 	}
 
-	for j := i + 1; j < len(data); j++ {
-		if data[j] == '`' {
-			return j + 1, data[i : j+1], nil
-		}
-	}
-
-	if atEOF {
-		return len(data), data, nil
-	}
-
-	return 0, nil, nil
+	//find string expr
+	advance, token, _ = findEndpoint('"')
+	return
 }
 
 func ValidID(ID string) bool {
