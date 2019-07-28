@@ -60,7 +60,7 @@ echo 3 4
     "key": "value"
 }'
 `
-	assert.Equal(t, []string{"echo '{\n    \"key\": \"value\"\n}'\n"}, splitRawCmd(s5))
+	assert.Equal(t, []string{"echo '{\n    \"key\": \"value\"\n}'"}, splitRawCmd(s5))
 }
 
 func splitRawCmd(text string) []string {

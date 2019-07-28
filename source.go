@@ -38,6 +38,7 @@ func (src *Source) Parse() ([]Commander, error) {
 	for src.buf.Scan() {
 		text := src.buf.Text()
 		src.curLine++
+		line := strings.Count(text, "\n")
 		text = strings.Trim(text, " \t\n")
 		if text == "" { //empty content line
 			continue
@@ -51,6 +52,7 @@ func (src *Source) Parse() ([]Commander, error) {
 		}
 
 		cmds = append(cmds, cmd)
+		src.curLine += line
 	}
 	return cmds, nil
 }
@@ -290,7 +292,7 @@ func splitCmd(data []byte, atEOF bool) (advance int, token []byte, err error) {
 
 	for j := i + 1; j < len(data)-1; j++ {
 		if data[j] == '\'' && data[j+1] == '\n' {
-			return j + 2, data[0 : j+2], nil
+			return j + 2, data[0 : j+1], nil
 		}
 	}
 
