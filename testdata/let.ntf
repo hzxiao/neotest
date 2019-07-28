@@ -17,3 +17,8 @@ echo $(c)
 
 let @e "$(a)"
 echo $(e)
+
+# echo multi line string
+echo '{
+    "key": $(b)
+}'

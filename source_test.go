@@ -37,3 +37,40 @@ func splitRawExpr(text string) []string {
 
 	return rawExprs
 }
+
+func TestSplitCmd(t *testing.T) {
+	s1 := `echo 1 2
+echo 3 4
+`
+	assert.Equal(t, []string{"echo 1 2", "echo 3 4"}, splitRawCmd(s1))
+
+	s2 := `echo '1234
+56'`
+	assert.Equal(t, []string{"echo '1234\n56'"}, splitRawCmd(s2))
+
+	s3 := `echo '123' '123'`
+	assert.Equal(t, []string{"echo '123' '123'"}, splitRawCmd(s3))
+
+	s4 := `echo '123
+456' '123
+'`
+	assert.Equal(t, []string{"echo '123\n456' '123\n'"}, splitRawCmd(s4))
+
+	s5 := `echo '{
+    "key": "value"
+}'
+`
+	assert.Equal(t, []string{"echo '{\n    \"key\": \"value\"\n}'\n"}, splitRawCmd(s5))
+}
+
+func splitRawCmd(text string) []string {
+	scanner := bufio.NewScanner(strings.NewReader(text))
+	scanner.Split(splitCmd)
+
+	var rawExprs []string
+	for scanner.Scan() {
+		rawExprs = append(rawExprs, scanner.Text())
+	}
+
+	return rawExprs
+}

@@ -28,7 +28,7 @@ func NewSource(filename string) (*Source, error) {
 func newSourceByBytes(data []byte) *Source {
 	src := &Source{}
 	src.buf = bufio.NewScanner(bytes.NewBuffer(data))
-	src.buf.Split(bufio.ScanLines)
+	src.buf.Split(splitCmd)
 	src.varType = make(map[string]string)
 	return src
 }
@@ -267,9 +267,37 @@ func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		return
 	}
 
+	advance, token, ok = findEndpoint('\'')
+	if ok {
+		return
+	}
+
 	//find string expr
 	advance, token, _ = findEndpoint('"')
 	return
+}
+
+func splitCmd(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	advance, token, err = bufio.ScanLines(data, atEOF)
+	if err != nil {
+		return
+	}
+
+	var i = 0
+	if i = bytes.IndexByte(token, '\''); i < 0 {
+		return
+	}
+
+	for j := i + 1; j < len(data)-1; j++ {
+		if data[j] == '\'' && data[j+1] == '\n' {
+			return j + 2, data[0 : j+2], nil
+		}
+	}
+
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
 }
 
 func ValidID(ID string) bool {

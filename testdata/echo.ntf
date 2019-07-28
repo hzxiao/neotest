@@ -1,2 +1,10 @@
 echo true
 echo "string" 12.22
+
+echo '{
+    "key": "value"
+}'
+
+echo '{
+    "key": "value"
+}' '123'
