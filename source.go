@@ -117,18 +117,10 @@ func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 		return nil, fmt.Errorf("invaild cmd syntax: the first argument should be @ID")
 	}
 
-	ID := let.exprList[0].(*IDExpr).ID
-
 	second := let.exprList[1]
 	var vType string
 	switch second.Type() {
 	case Bool, Float, String:
-		IDs := second.(Variate).Variables()
-		for _, id := range IDs {
-			if _, ok := src.varType[id]; !ok {
-				return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
-			}
-		}
 		if second.Type() == Bool {
 			vType = "bool"
 		} else if second.Type() == Float {
@@ -137,18 +129,21 @@ func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 			vType = "string"
 		}
 	case SubCommand:
-		IDs := second.(Variate).Variables()
-		for _, id := range IDs {
-			if _, ok := src.varType[id]; !ok {
-				return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
-			}
-		}
 		vType = second.(Resultant).ResultType()
 	default:
 		return nil, fmt.Errorf("invalid cmd syntax: invalid second argument type")
 	}
 
+	//check variable exist
+	IDs := second.(Variate).Variables()
+	for _, id := range IDs {
+		if _, ok := src.varType[id]; !ok {
+			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), id)
+		}
+	}
+
 	//record variable type on source-parsing stage
+	ID := let.exprList[0].(*IDExpr).ID
 	src.varType[ID] = vType
 	return let, nil
 }
