@@ -1,0 +1,6 @@
+let @env_key "PATH"
+let @path `env $(env_key)`
+
+echo $(path)
+
+echo `env "PATH"`

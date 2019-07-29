@@ -33,6 +33,7 @@ func newSourceByBytes(data []byte) *Source {
 	return src
 }
 
+//Parse parse all command line by line
 func (src *Source) Parse() ([]Commander, error) {
 	var cmds []Commander
 	for src.buf.Scan() {
@@ -57,6 +58,7 @@ func (src *Source) Parse() ([]Commander, error) {
 	return cmds, nil
 }
 
+//ParseCmd parse a special cmd by one-line string
 func (src *Source) ParseCmd(text string) (Commander, error) {
 	scan := bufio.NewScanner(strings.NewReader(text))
 	scan.Split(splitExpr)
@@ -76,6 +78,7 @@ func (src *Source) ParseCmd(text string) (Commander, error) {
 	return nil, nil
 }
 
+//parseEchoCmd parse 'echo' command
 func (src *Source) parseEchoCmd(line int, buf *bufio.Scanner) (*EchoCmd, error) {
 	echo := NewEchoCmd(line)
 	for buf.Scan() {
@@ -94,6 +97,7 @@ func (src *Source) parseEchoCmd(line int, buf *bufio.Scanner) (*EchoCmd, error) 
 	return echo, nil
 }
 
+//parseLetCmd parse 'let' command
 func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 	let := NewLetCmd(line)
 	for buf.Scan() {
@@ -133,11 +137,18 @@ func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 			vType = "string"
 		}
 	case SubCommand:
-		//TODO: handle sub cmd expr
+		IDs := second.(Variate).Variables()
+		for _, id := range IDs {
+			if _, ok := src.varType[id]; !ok {
+				return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+			}
+		}
+		vType = second.(Resultant).ResultType()
 	default:
 		return nil, fmt.Errorf("invalid cmd syntax: invalid second argument type")
 	}
 
+	//record variable type on source-parsing stage
 	src.varType[ID] = vType
 	return let, nil
 }
@@ -151,27 +162,26 @@ func (src *Source) ParseExpr(text string) (ExprNode, error) {
 
 	var expr ExprNode
 	switch {
-	case text == "true" || text == "false":
+	case text == "true" || text == "false": // bool expr
 		expr = newBoolExpr(text)
-	case strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\""):
+	case strings.HasPrefix(text, "\"") && strings.HasSuffix(text, "\""): //string expr one-line
 		return src.parseStringExpr(strings.Trim(text, "\""))
-	case strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'"):
+	case strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'"): // string expr multi line
 		return src.parseStringExpr(strings.Trim(text, "'"))
-	case strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`"):
-		//TODO: sub cmd expr
-
+	case strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`"): // sub command expr
+		return src.parseSubCmdExpr(strings.Trim(text, "`"))
 	case strings.HasPrefix(text, "$(") && strings.HasSuffix(text, ")"): //var
 		ID := text[2 : len(text)-1]
 		if !ValidID(ID) {
 			return nil, fmt.Errorf("invalid variable: %v", text)
 		}
 		return src.parseExprByVqr(text)
-	case strings.HasPrefix(text, "@"): //ID
+	case strings.HasPrefix(text, "@"): //ID expr
 		return src.parseIDExpr(text)
 	default:
 		//check valid float format
 		_, err := strconv.ParseFloat(text, 64)
-		if err == nil {
+		if err == nil { // float expr
 			return newFloatExpr(text), nil
 		}
 		return nil, fmt.Errorf("invalid expression: %v", text)
@@ -227,17 +237,40 @@ func (src *Source) parseStringExpr(text string) (ExprNode, error) {
 	return newStringExpr(text), nil
 }
 
-func (src *Source) ReadString(delim byte) (string, error) {
-	builder := strings.Builder{}
-	for src.buf.Scan() {
-		src.curLine++
-		text := strings.Trim(src.buf.Text(), " \t\n")
-		builder.WriteString(text)
-		if strings.HasSuffix(text, string(delim)) {
-			break
-		}
+func (src *Source) parseSubCmdExpr(text string) (ExprNode, error) {
+	scan := bufio.NewScanner(strings.NewReader(text))
+	scan.Split(splitExpr)
+
+	var cmdName string
+	if scan.Scan() {
+		cmdName = scan.Text()
 	}
-	return builder.String(), nil
+	switch cmdName {
+	case "env":
+		return src.parseEnvSubCmd(src.curLine, scan)
+	default:
+		return nil, fmt.Errorf("unknown cmd: %v", cmdName)
+	}
+	return nil, nil
+}
+
+func (src *Source) parseEnvSubCmd(line int, buf *bufio.Scanner) (*EnvSubCmd, error) {
+	env := NewEnvSubCmd(line)
+	for buf.Scan() {
+		text := buf.Text()
+		expr, err := src.ParseExpr(text)
+		if err != nil {
+			return nil, err
+		}
+
+		env.exprList = append(env.exprList, expr)
+	}
+
+	if len(env.exprList) != 1 {
+		return nil, fmt.Errorf("num of expr must be 1, but it is %v", len(env.exprList))
+	}
+
+	return env, nil
 }
 
 func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
