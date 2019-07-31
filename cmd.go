@@ -10,6 +10,9 @@ type Commander interface {
 	Exec(vm *VM) error
 	Line() int
 	Name() string
+	ExprList() []ExprNode
+	AddExpr(expr ExprNode)
+	CheckExpr(varType map[string]string) error
 }
 
 type Cmd struct {
@@ -37,4 +40,16 @@ func (c *Cmd) Line() int {
 
 func (c *Cmd) Name() string {
 	return c.name
+}
+
+func (c *Cmd) ExprList() []ExprNode {
+	return c.exprList
+}
+
+func (c *Cmd) AddExpr(expr ExprNode) {
+	c.exprList = append(c.exprList, expr)
+}
+
+func (c *Cmd) CheckExpr(varType map[string]string) error {
+	return nil
 }

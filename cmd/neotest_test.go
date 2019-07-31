@@ -19,3 +19,8 @@ func TestSubCmd(t *testing.T)  {
 	err := run([]string{"../testdata/sub_cmd.ntf"})
 	assert.NoError(t, err)
 }
+
+func TestEqualCmd(t *testing.T)  {
+	err := run([]string{"../testdata/equal.ntf"})
+	assert.NoError(t, err)
+}

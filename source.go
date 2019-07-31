@@ -41,10 +41,8 @@ func (src *Source) Parse() ([]Commander, error) {
 		src.curLine++
 		line := strings.Count(text, "\n")
 		text = strings.Trim(text, " \t\n")
-		if text == "" { //empty content line
-			continue
-		}
-		if strings.HasPrefix(text, "#") { //annotation
+		if text == "" || strings.HasPrefix(text, "#") {
+			src.curLine += line
 			continue
 		}
 		cmd, err := src.ParseCmd(text)
@@ -67,94 +65,33 @@ func (src *Source) ParseCmd(text string) (Commander, error) {
 	if scan.Scan() {
 		cmdName = scan.Text()
 	}
+	var cmd Commander
 	switch cmdName {
 	case "echo":
-		return src.parseEchoCmd(src.curLine, scan)
+		cmd = NewEchoCmd(src.curLine)
 	case "let":
-		return src.parseLetCmd(src.curLine, scan)
+		cmd = NewLetCmd(src.curLine)
+	case "equal":
+		cmd = NewEqualCmd(src.curLine)
 	default:
 		return nil, fmt.Errorf("unknown cmd: %v", cmdName)
 	}
-	return nil, nil
-}
-
-//parseEchoCmd parse 'echo' command
-func (src *Source) parseEchoCmd(line int, buf *bufio.Scanner) (*EchoCmd, error) {
-	echo := NewEchoCmd(line)
-	for buf.Scan() {
-		text := buf.Text()
+	//parse expr
+	for scan.Scan() {
+		text := scan.Text()
 		expr, err := src.ParseExpr(text)
 		if err != nil {
 			return nil, err
 		}
 
-		echo.exprList = append(echo.exprList, expr)
+		cmd.AddExpr(expr)
 	}
 
-	if len(echo.exprList) == 0 {
-		return nil, fmt.Errorf("no enough arguments")
+	err := cmd.CheckExpr(src.varType)
+	if err != nil {
+		return nil, err
 	}
-	return echo, nil
-}
-
-//parseLetCmd parse 'let' command
-func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
-	let := NewLetCmd(line)
-	for buf.Scan() {
-		text := buf.Text()
-		expr, err := src.ParseExpr(text)
-		if err != nil {
-			return nil, err
-		}
-
-		let.exprList = append(let.exprList, expr)
-	}
-
-	if len(let.exprList) != 2 {
-		return nil, fmt.Errorf("num of expr must be 2, but it is %v", len(let.exprList))
-	}
-	if let.exprList[0].Type() != Identity {
-		return nil, fmt.Errorf("invaild cmd syntax: the first argument should be @ID")
-	}
-
-	second := let.exprList[1]
-	var vType string
-	switch second.Type() {
-	case Bool, Float, String:
-		if second.Type() == Bool {
-			vType = "bool"
-		} else if second.Type() == Float {
-			vType = "float"
-		} else {
-			vType = "string"
-		}
-	case SubCommand:
-		vType = second.(Resultant).ResultType()
-	case InternalVar:
-		vType = "internal"
-	default:
-		return nil, fmt.Errorf("invalid cmd syntax: invalid second argument type")
-	}
-
-	//check variable exist
-	IDs := second.(Variate).Variables()
-	for _, id := range IDs {
-		isInternal, err := CheckInternalVarID(id)
-		if err != nil {
-			return nil, err
-		}
-		if isInternal {
-			continue
-		}
-		if _, ok := src.varType[id]; !ok {
-			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), id)
-		}
-	}
-
-	//record variable type on source-parsing stage
-	ID := let.exprList[0].(*IDExpr).ID
-	src.varType[ID] = vType
-	return let, nil
+	return cmd, nil
 }
 
 //ParseExpr parse expression
@@ -236,13 +173,10 @@ func (src *Source) parseExprByVqr(IDFull string) (ExprNode, error) {
 func (src *Source) parseStringExpr(text string) (ExprNode, error) {
 	all := regexp.MustCompile(`\$\(.*?\)`).FindAllString(text, -1)
 	for _, v := range all {
-		ID, yes := isVar(v)
-		if !yes {
-			return nil, fmt.Errorf("invalid variable: %v", v)
-		}
-		_, ok := src.varType[ID]
-		if !ok {
-			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+		ID, _ := isVar(v)
+		err := CheckVar(ID, src.varType)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -350,4 +284,18 @@ func splitCmd(data []byte, atEOF bool) (advance int, token []byte, err error) {
 func ValidID(ID string) bool {
 	ok, _ := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*$`, ID)
 	return ok
+}
+
+func CheckVar(ID string, varType map[string]string) error {
+	isInternal, err := CheckInternalVarID(ID)
+	if err != nil {
+		return err
+	}
+	if isInternal {
+		return nil
+	}
+	if _, ok := varType[ID]; !ok {
+		return fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+	}
+	return nil
 }
