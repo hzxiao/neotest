@@ -130,6 +130,8 @@ func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 		}
 	case SubCommand:
 		vType = second.(Resultant).ResultType()
+	case InternalVar:
+		vType = "internal"
 	default:
 		return nil, fmt.Errorf("invalid cmd syntax: invalid second argument type")
 	}
@@ -137,6 +139,13 @@ func (src *Source) parseLetCmd(line int, buf *bufio.Scanner) (*LetCmd, error) {
 	//check variable exist
 	IDs := second.(Variate).Variables()
 	for _, id := range IDs {
+		isInternal, err := CheckInternalVarID(id)
+		if err != nil {
+			return nil, err
+		}
+		if isInternal {
+			continue
+		}
 		if _, ok := src.varType[id]; !ok {
 			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), id)
 		}
@@ -166,10 +175,6 @@ func (src *Source) ParseExpr(text string) (ExprNode, error) {
 	case strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`"): // sub command expr
 		return src.parseSubCmdExpr(strings.Trim(text, "`"))
 	case strings.HasPrefix(text, "$(") && strings.HasSuffix(text, ")"): //var
-		ID := text[2 : len(text)-1]
-		if !ValidID(ID) {
-			return nil, fmt.Errorf("invalid variable: %v", text)
-		}
 		return src.parseExprByVqr(text)
 	case strings.HasPrefix(text, "@"): //ID expr
 		return src.parseIDExpr(text)
@@ -196,9 +201,19 @@ func (src *Source) parseIDExpr(ID string) (ExprNode, error) {
 
 func (src *Source) parseExprByVqr(IDFull string) (ExprNode, error) {
 	ID, _ := isVar(IDFull)
-	Type, exist := src.varType[ID]
-	if !exist {
-		return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+	isInternal, err := CheckInternalVarID(ID)
+	if err != nil {
+		return nil, err
+	}
+	var Type string
+	if isInternal {
+		Type = "internal"
+	} else {
+		var exist bool
+		Type, exist = src.varType[ID]
+		if !exist {
+			return nil, fmt.Errorf("%v: %v", ErrVariableUndefine.Error(), ID)
+		}
 	}
 
 	var expr ExprNode
@@ -209,6 +224,8 @@ func (src *Source) parseExprByVqr(IDFull string) (ExprNode, error) {
 		expr = newStringExpr(IDFull)
 	case "float":
 		expr = newFloatExpr(IDFull)
+	case "internal":
+		expr = newInternalValExpr(IDFull)
 	default:
 		return nil, fmt.Errorf("wrong variable type: %v", Type)
 	}
@@ -331,6 +348,6 @@ func splitCmd(data []byte, atEOF bool) (advance int, token []byte, err error) {
 }
 
 func ValidID(ID string) bool {
-	ok, _ := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*`, ID)
+	ok, _ := regexp.MatchString(`^[a-zA-Z_][a-zA-Z0-9_]*$`, ID)
 	return ok
 }

@@ -8,3 +8,6 @@ echo '{
 echo '{
     "key": "value"
 }' '123'
+
+# use internal variable
+echo $(neotest.version)

@@ -14,6 +14,7 @@ func TestValidID(t *testing.T) {
 	assert.True(t, ValidID("a_b_1"))
 	assert.False(t, ValidID("@ab"))
 	assert.False(t, ValidID("1ab"))
+	assert.False(t, ValidID("a.b"))
 }
 
 func TestSplitExpr(t *testing.T) {

@@ -17,6 +17,7 @@ const (
 	String
 	Identity
 	SubCommand
+	InternalVar
 )
 
 type Variate interface {
@@ -59,7 +60,7 @@ type varExpr struct {
 }
 
 func (expr *varExpr) Variables() []string {
-	all := regexp.MustCompile(`\$\([a-zA-Z_][a-zA-Z0-9_]*\)`).FindAllString(expr.val, -1)
+	all := regexp.MustCompile(`\$\([a-zA-Z_][a-zA-Z0-9_\\.]*\)`).FindAllString(expr.val, -1)
 
 	var IDs []string
 	for _, v := range all {
@@ -81,7 +82,7 @@ func (expr *stringExpr) Run(vm *VM) (interface{}, error) {
 	val := expr.val
 
 	//find contain var
-	allIndex := regexp.MustCompile(`\$\([a-zA-Z_][a-zA-Z0-9_]*\)`).FindAllStringIndex(expr.val, -1)
+	allIndex := regexp.MustCompile(`\$\([a-zA-Z_][a-zA-Z0-9_\\.]*\)`).FindAllStringIndex(expr.val, -1)
 	for _, idx := range allIndex {
 		ID, _ := isVar(expr.val[idx[0]:idx[1]])
 		v, exist := vm.StringV(ID)
@@ -153,6 +154,24 @@ func (expr *floatExpr) Run(vm *VM) (interface{}, error) {
 
 func (expr *floatExpr) Type() ExprType {
 	return Float
+}
+
+type internalVarExpr struct {
+	varExpr
+}
+
+func newInternalValExpr(val string) *internalVarExpr {
+	return &internalVarExpr{varExpr{val: val}}
+}
+
+func (expr *internalVarExpr) Run(vm *VM) (interface{}, error) {
+	ID, _ := isVar(expr.val)
+	v, _ := vm.Var(ID)
+	return v, nil
+}
+
+func (expr *internalVarExpr) Type() ExprType {
+	return InternalVar
 }
 
 func isVar(v interface{}) (ID string, yes bool) {

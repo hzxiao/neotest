@@ -3,11 +3,19 @@ package neotest
 import (
 	"fmt"
 	"github.com/hzxiao/goutil"
+	"strings"
 )
 
 var (
 	ErrVariableUndefine = fmt.Errorf("variable undefine")
 )
+
+var internalVarMap = goutil.Map{
+	"neotest": goutil.Map{
+		"version": "0.1",
+		"author":  "hz",
+	},
+}
 
 type VM struct {
 	variable goutil.Map
@@ -15,13 +23,23 @@ type VM struct {
 }
 
 func NewVM(commands []Commander) *VM {
-	return &VM{
+	vm := &VM{
 		variable: goutil.Map{},
 		commands: commands,
 	}
+
+	for k, v := range internalVarMap {
+		vm.variable.Set(k, v)
+	}
+	return vm
 }
 
 func (vm *VM) Var(ID string) (interface{}, bool) {
+	ID = strings.Replace(ID, ".", "/", -1)
+	if strings.Contains(ID, "/") {
+		v, _ := vm.variable.GetP(ID)
+		return v, v != nil
+	}
 	v, ok := vm.variable[ID]
 	if !ok {
 		return nil, ok
@@ -30,24 +48,27 @@ func (vm *VM) Var(ID string) (interface{}, bool) {
 }
 
 func (vm *VM) StringV(ID string) (string, bool) {
-	if !vm.variable.Exist(ID) {
+	v, ok := vm.Var(ID)
+	if !ok {
 		return "", false
 	}
-	return vm.variable.GetString(ID), true
+	return goutil.String(v), true
 }
 
 func (vm *VM) FloatV(ID string) (float64, bool) {
-	if !vm.variable.Exist(ID) {
+	v, ok := vm.Var(ID)
+	if !ok {
 		return 0, false
 	}
-	return vm.variable.GetFloat64(ID), true
+	return goutil.Float64(v), true
 }
 
 func (vm *VM) BoolV(ID string) (bool, bool) {
-	if !vm.variable.Exist(ID) {
+	v, ok := vm.Var(ID)
+	if !ok {
 		return false, false
 	}
-	return vm.variable.GetBool(ID), true
+	return goutil.Bool(v), true
 }
 
 func (vm *VM) StoreVar(ID string, v interface{}) error {
@@ -76,4 +97,18 @@ func (vm *VM) Run() error {
 		}
 	}
 	return nil
+}
+
+//CheckInternalVarID check whether ID is internal var and validation
+func CheckInternalVarID(ID string) (bool, error) {
+	if !strings.Contains(ID, ".") {
+		return false, nil
+	}
+
+	fields := strings.Split(ID, ".")
+	if _, ok := internalVarMap[fields[0]]; !ok {
+		return true, fmt.Errorf("unknown internal variable: %v", fields[0])
+	}
+
+	return true, nil
 }

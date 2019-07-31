@@ -22,3 +22,9 @@ echo $(e)
 echo '{
     "key": $(b)
 }'
+
+let @v $(neotest.version)
+echo $(v)
+
+let @v_2 $(v)
+echo $(v_2)
