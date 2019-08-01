@@ -75,3 +75,10 @@ func (env *EnvSubCmd) Run(vm *VM) (interface{}, error) {
 
 	return os.Getenv(goutil.String(v)), nil
 }
+
+func (env *EnvSubCmd) CheckExpr(varType map[string]string) error {
+	if len(env.exprList) != 1 {
+		return fmt.Errorf("num of expr must be 1, but it is %v", len(env.exprList))
+	}
+	return nil
+}

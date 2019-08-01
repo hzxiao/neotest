@@ -45,7 +45,7 @@ func (src *Source) Parse() ([]Commander, error) {
 			src.curLine += line
 			continue
 		}
-		cmd, err := src.ParseCmd(text)
+		cmd, err := src.ParseCmd(text, false)
 		if err != nil {
 			return nil, fmt.Errorf("line: %v, err: %v", src.curLine, err)
 		}
@@ -57,7 +57,7 @@ func (src *Source) Parse() ([]Commander, error) {
 }
 
 //ParseCmd parse a special cmd by one-line string
-func (src *Source) ParseCmd(text string) (Commander, error) {
+func (src *Source) ParseCmd(text string, sub bool) (Commander, error) {
 	scan := bufio.NewScanner(strings.NewReader(text))
 	scan.Split(splitExpr)
 
@@ -66,16 +66,26 @@ func (src *Source) ParseCmd(text string) (Commander, error) {
 		cmdName = scan.Text()
 	}
 	var cmd Commander
-	switch cmdName {
-	case "echo":
-		cmd = NewEchoCmd(src.curLine)
-	case "let":
-		cmd = NewLetCmd(src.curLine)
-	case "equal":
-		cmd = NewEqualCmd(src.curLine)
-	default:
-		return nil, fmt.Errorf("unknown cmd: %v", cmdName)
+	if !sub {
+		switch cmdName {
+		case "echo":
+			cmd = NewEchoCmd(src.curLine)
+		case "let":
+			cmd = NewLetCmd(src.curLine)
+		case "equal":
+			cmd = NewEqualCmd(src.curLine)
+		default:
+			return nil, fmt.Errorf("unknown cmd: %v", cmdName)
+		}
+	} else {
+		switch cmdName {
+		case "env":
+			cmd = NewEnvSubCmd(src.curLine)
+		default:
+			return nil, fmt.Errorf("unknown sub cmd: %v", cmdName)
+		}
 	}
+
 	//parse expr
 	for scan.Scan() {
 		text := scan.Text()
@@ -110,7 +120,7 @@ func (src *Source) ParseExpr(text string) (ExprNode, error) {
 	case strings.HasPrefix(text, "'") && strings.HasSuffix(text, "'"): // string expr multi line
 		return src.parseStringExpr(strings.Trim(text, "'"))
 	case strings.HasPrefix(text, "`") && strings.HasSuffix(text, "`"): // sub command expr
-		return src.parseSubCmdExpr(strings.Trim(text, "`"))
+		return src.ParseSubCmdExpr(strings.Trim(text, "`"))
 	case strings.HasPrefix(text, "$(") && strings.HasSuffix(text, ")"): //var
 		return src.parseExprByVqr(text)
 	case strings.HasPrefix(text, "@"): //ID expr
@@ -183,40 +193,12 @@ func (src *Source) parseStringExpr(text string) (ExprNode, error) {
 	return newStringExpr(text), nil
 }
 
-func (src *Source) parseSubCmdExpr(text string) (ExprNode, error) {
-	scan := bufio.NewScanner(strings.NewReader(text))
-	scan.Split(splitExpr)
-
-	var cmdName string
-	if scan.Scan() {
-		cmdName = scan.Text()
+func (src *Source) ParseSubCmdExpr(text string) (ExprNode, error) {
+	cmd, err := src.ParseCmd(text, true)
+	if err != nil {
+		return nil, err
 	}
-	switch cmdName {
-	case "env":
-		return src.parseEnvSubCmd(src.curLine, scan)
-	default:
-		return nil, fmt.Errorf("unknown cmd: %v", cmdName)
-	}
-	return nil, nil
-}
-
-func (src *Source) parseEnvSubCmd(line int, buf *bufio.Scanner) (*EnvSubCmd, error) {
-	env := NewEnvSubCmd(line)
-	for buf.Scan() {
-		text := buf.Text()
-		expr, err := src.ParseExpr(text)
-		if err != nil {
-			return nil, err
-		}
-
-		env.exprList = append(env.exprList, expr)
-	}
-
-	if len(env.exprList) != 1 {
-		return nil, fmt.Errorf("num of expr must be 1, but it is %v", len(env.exprList))
-	}
-
-	return env, nil
+	return cmd.(ExprNode), nil
 }
 
 func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
