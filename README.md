@@ -162,12 +162,12 @@ tx-witness '[
 req <http-method> <url>
 ```
 
-#### json
+#### body
 
  用于指定请求包或返回包的`json`格式正文内容。语法：
 
 ```bash
-json <json-data>
+body <json-data>
 ```
 
 #### ret

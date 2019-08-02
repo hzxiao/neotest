@@ -2,7 +2,10 @@ package main
 
 import (
 	"github.com/hzxiao/goutil/assert"
+	"io/ioutil"
+	"net/http"
 	"testing"
+	"time"
 )
 
 func TestRun(t *testing.T)  {
@@ -22,5 +25,35 @@ func TestSubCmd(t *testing.T)  {
 
 func TestEqualCmd(t *testing.T)  {
 	err := run([]string{"../testdata/equal.ntf"})
+	assert.NoError(t, err)
+}
+
+func TestReqCmd(t *testing.T)  {
+	var hello = func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write([]byte("hi"))
+	}
+
+	var foo = func(w http.ResponseWriter, r *http.Request) {
+		buf, err := ioutil.ReadAll(r.Body)
+		assert.NoError(t, err)
+		defer r.Body.Close()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write(buf)
+	}
+
+	http.HandleFunc("/hello", hello)
+	http.HandleFunc("/foo", foo)
+
+	go func() {
+		err := http.ListenAndServe(":10000", nil)
+		assert.Error(t, err)
+	}()
+
+	time.Sleep(2*time.Second)
+	err := run([]string{"../testdata/http.ntf"})
 	assert.NoError(t, err)
 }

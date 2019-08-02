@@ -1,6 +1,7 @@
 package neotest
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/hzxiao/goutil"
 	"strings"
@@ -15,11 +16,14 @@ var internalVarMap = goutil.Map{
 		"version": "0.1",
 		"author":  "hz",
 	},
+	"resp": nil,
 }
 
 type VM struct {
 	variable goutil.Map
 	commands []Commander
+
+	CurHttpReq *HttpRequest
 }
 
 func NewVM(commands []Commander) *VM {
@@ -86,6 +90,30 @@ func (vm *VM) VarByType(ID string, typ string) (interface{}, error) {
 	}
 
 	return v, nil
+}
+
+//SendHttp send current http request
+func (vm *VM) SendHttp() error {
+	code, header, body, err := vm.CurHttpReq.Send()
+	if err != nil {
+		return err
+	}
+
+	var m goutil.Map
+	err = json.Unmarshal([]byte(body.(string)), &m)
+	if err == nil {
+		body = m
+	}
+
+	vm.StoreVar("resp", goutil.Map{
+		"code":   code,
+		"header": header,
+		"body":   body,
+	})
+
+	//clear cur req
+	vm.CurHttpReq = nil
+	return nil
 }
 
 func (vm *VM) Run() error {

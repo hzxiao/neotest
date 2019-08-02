@@ -74,6 +74,12 @@ func (src *Source) ParseCmd(text string, sub bool) (Commander, error) {
 			cmd = NewLetCmd(src.curLine)
 		case "equal":
 			cmd = NewEqualCmd(src.curLine)
+		case "req":
+			cmd = NewReqCmd(src.curLine)
+		case "body":
+			cmd = NewBodyCmd(src.curLine)
+		case "ret":
+			cmd = NewRetCmd(src.curLine)
 		default:
 			return nil, fmt.Errorf("unknown cmd: %v", cmdName)
 		}

@@ -1,0 +1,24 @@
+# 定义请求地址变量
+let @host "http://localhost:10000"
+
+# 发起http GET请求， 该请求返回"hi"
+req "GET" "$(host)/hello"
+
+# 请求返回的http状态码为200
+ret 200
+
+# 输出http返回值， resp是内置变量
+echo $(resp.body)
+
+equal "hi" $(resp.body)
+
+# 发送POST请求，返回接收到的数据
+req "POST" "$(host)/foo"
+# 指定请求的body数据
+body '{"foo": "bar"}'
+
+ret 200
+# 输出返回值
+echo $(resp.body.foo)
+
+equal "bar" $(resp.body.foo)
