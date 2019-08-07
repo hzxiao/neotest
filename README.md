@@ -58,12 +58,13 @@ te-fee <float>
 
 #### tx-attr
 
-指定交易的Attribute，接收一个json格式的对象数组,其中usage字段的值有ContractHash, ECDH02, ECDH03, Script, Vote, DescriptionUrl, Description, Hash1~Hash15, Remark, Remark1~Remark15
+指定交易的Attribute，接收两个字符串参数，其中第一个参数为usage，值有ContractHash, ECDH02, ECDH03, Script, Vote, DescriptionUrl, Description, Hash1-Hash15, Remark, Remark1-Remark15；第二个参数为data。
+
+该命令可以声明多个。
 
 ```bash
-tx-attr '[
-  {"usage":"Script", "data": "5e40b22e86dc6ff4a7b0416450971469fe71040d"}
-]'
+tx-attr "Script" "5e40b22e86dc6ff4a7b0416450971469fe71040d"
+tx-attr "Hash1" "abcd"
 ```
 
 #### tx-initiator
@@ -76,12 +77,16 @@ tx-initiator <PrivateKey>
 
 #### tx-vout
 
-指定UTXO模型代币转账, 接收一个json格式的对象数组
+指定UTXO模型代币转账, 接收三个参数：
+
+1. 资产哈希，字符串类型
+2. 钱包地址，字符串
+3. 转账数量，数量值类型
+
+该命令可以多次声明
 
 ```bash
-tx-vout '[
-  {"asset_hash":"", "sripthash":"", "value": 1}
-]'
+tx-vout <asset_hash> <address> <value>
 ```
 
 #### tx-invoke
@@ -140,19 +145,29 @@ tx-invokesscript <Script>
 
 #### tx-witness
 
-指定见证人，接收一个json格式的对象数组。其中
+指定见证人，接收两个字符串参数。其中
 
-witness: 指定普通地址的私钥或智能合约的哈希脚本。
+1. 普通地址的私钥或智能合约的哈希脚本。
 
-invocation: 调用脚本，当witness为只能合约的哈希脚本时，该值为验证智能合约的参数；当witness为普通地址的私钥时，该值为空即可。
+2. 调用脚本，当witness为只能合约的哈希脚本时，该值为验证智能合约的参数；当witness为普通地址的私钥时，该值为空即可。
 
 注：`tx-initiator`命令指定的私钥无需在此处指定。
 
+该命令可以多次声明使用
+
 ```bash
-tx-witness '[
-  {"witness": "", "invocation":""}
-]'
+tx-witness <witness> <invocation>
 ```
+
+#### tx-send
+
+广播交易。接收一个节点地址
+
+```bash
+tx-send "http://localhost:20332"
+```
+
+
 
 #### req
 

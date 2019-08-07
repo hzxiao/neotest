@@ -1,7 +1,10 @@
 package neotest
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	"strconv"
+	"strings"
 )
 
 var _ Commander = new(Cmd)
@@ -52,4 +55,24 @@ func (c *Cmd) AddExpr(expr ExprNode) {
 
 func (c *Cmd) CheckExpr(varType map[string]string) error {
 	return nil
+}
+
+func checkExprNumAndType(exprList []ExprNode, num []int, types ...ExprType) error {
+	var s []string
+	for _, n := range num {
+		s = append(s, strconv.Itoa(n))
+		if n == len(exprList) {
+			if len(types) < n {
+				return fmt.Errorf("length of types must >= num")
+			}
+			for i := range exprList {
+				if exprList[i].Type() != types[i] {
+					return fmt.Errorf("index of expr at %v must be %v", i, types[i].String())
+				}
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("num of expr must be %v, but it is %v", strings.Join(s, " or"), len(exprList))
 }

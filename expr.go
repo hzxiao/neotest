@@ -20,6 +20,27 @@ const (
 	InternalVar
 )
 
+func (t ExprType) String() string {
+	switch t {
+	case Invalid:
+		return "invalid"
+	case Bool:
+		return "bool"
+	case Float:
+		return "number"
+	case String:
+		return "string"
+	case Identity:
+		return "identity"
+	case SubCommand:
+		return "subCmd"
+	case InternalVar:
+		return "internelVar"
+	}
+
+	return ""
+}
+
 type Variate interface {
 	Variables() []string
 }

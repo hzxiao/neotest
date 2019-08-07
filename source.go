@@ -80,6 +80,28 @@ func (src *Source) ParseCmd(text string, sub bool) (Commander, error) {
 			cmd = NewBodyCmd(src.curLine)
 		case "ret":
 			cmd = NewRetCmd(src.curLine)
+		case "tx":
+			cmd = NewTxCmd(src.curLine)
+		case "tx-v":
+			cmd = NewTxVCmd(src.curLine)
+		case "tx-type":
+			cmd = NewTxTypeCmd(src.curLine)
+		case "tx-attr":
+			cmd = NewTxAttrCmd(src.curLine)
+		case "tx-initiator":
+			cmd = NewTxInitiatorCmd(src.curLine)
+		case "tx-vout":
+			cmd = NewTxVoutCmd(src.curLine)
+		case "tx-invoke":
+			cmd = NewTxInvokeCmd(src.curLine)
+		case "tx-invokefunc":
+			cmd = NewTxInvokeFuncCmd(src.curLine)
+		case "tx-invokescript":
+			cmd = NewTxInvokeScriptCmd(src.curLine)
+		case "tx-witness":
+			cmd = NewTxWitnessCmd(src.curLine)
+		case "tx-send":
+			cmd = NewTxSendCmd(src.curLine)
 		default:
 			return nil, fmt.Errorf("unknown cmd: %v", cmdName)
 		}
