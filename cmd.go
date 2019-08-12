@@ -16,6 +16,7 @@ type Commander interface {
 	ExprList() []ExprNode
 	AddExpr(expr ExprNode)
 	CheckExpr(varType map[string]string) error
+	RunExprIndexOf(index int, vm *VM) (interface{}, error)
 }
 
 type Cmd struct {
@@ -57,6 +58,10 @@ func (c *Cmd) CheckExpr(varType map[string]string) error {
 	return nil
 }
 
+func (c *Cmd) RunExprIndexOf(index int, vm *VM) (interface{}, error)  {
+	return c.exprList[index].Run(vm)
+}
+
 func checkExprNumAndType(exprList []ExprNode, num []int, types ...ExprType) error {
 	var s []string
 	for _, n := range num {
@@ -75,4 +80,26 @@ func checkExprNumAndType(exprList []ExprNode, num []int, types ...ExprType) erro
 	}
 
 	return fmt.Errorf("num of expr must be %v, but it is %v", strings.Join(s, " or"), len(exprList))
+}
+
+func toString(v interface{}, err error) (string, error) {
+	if err != nil {
+		return "", err
+	}
+	s, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("expr is not string type")
+	}
+	return s, nil
+}
+
+func toFloat64(v interface{}, err error) (float64, error) {
+	if err != nil {
+		return 0, err
+	}
+	f, ok := v.(float64)
+	if !ok {
+		return 0, fmt.Errorf("expr is not number type")
+	}
+	return f, nil
 }

@@ -1,5 +1,11 @@
 package neotest
 
+import (
+	"fmt"
+	"github.com/hzxiao/goutil"
+	"github.com/hzxiao/neotest/pkg/neo"
+)
+
 //TxCmd declare neo tx command
 type TxCmd struct {
 	*Cmd
@@ -17,17 +23,25 @@ func (c *TxCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx != nil {
+		return fmt.Errorf("there is already a tx not be handled")
+	}
+
+	var name string
+	if len(c.exprList) > 0 {
+		name, err = toString(c.RunExprIndexOf(0, vm))
+		if err != nil {
+			return err
+		}
+	}
+
+	vm.CurTx = neo.NewTx(name)
 
 	return nil
 }
 
 func (c *TxCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{0, 1}, String)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return checkExprNumAndType(c.exprList, []int{0, 1}, String)
 }
 
 //TxVCmd neo tx version command
@@ -47,21 +61,25 @@ func (c *TxVCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
+	v, err := toFloat64(c.RunExprIndexOf(0, vm))
+	if err != nil {
+		return err
+	}
+	if v != 0 && v != 1 {
+		return fmt.Errorf("wrong tx version")
+	}
 
+	vm.CurTx.Version = uint8(v)
 	return nil
 }
 
 func (c *TxVCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, Float)
-	if err != nil {
-		return err
-	}
-
-
-	return nil
+	return checkExprNumAndType(c.exprList, []int{1}, Float)
 }
-
 
 //TxTypeCmd neo tx type command
 type TxTypeCmd struct {
@@ -80,18 +98,20 @@ func (c *TxTypeCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-
-	return nil
-}
-
-func (c *TxTypeCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, String)
+	Type, err := toString(c.RunExprIndexOf(0, vm))
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return vm.CurTx.SetType(Type)
+}
+
+func (c *TxTypeCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{1}, String)
 }
 
 //TxFeeCmd neo tx fee command
@@ -111,20 +131,20 @@ func (c *TxFeeCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-	return nil
-}
-
-func (c *TxFeeCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, Float)
+	fee, err := toFloat64(c.RunExprIndexOf(0, vm))
 	if err != nil {
 		return err
 	}
-
-
-	return nil
+	return vm.CurTx.SetFee(fee)
 }
 
+func (c *TxFeeCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{1}, Float)
+}
 
 //TxAttrCmd neo tx fee command
 type TxAttrCmd struct {
@@ -143,18 +163,32 @@ func (c *TxAttrCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-	return nil
-}
+	usage, err := toString(c.RunExprIndexOf(0, vm))
+	if err != nil {
+		return err
+	}
+	if !neo.ValidAttrUsage(usage) {
+		return fmt.Errorf("invalid attr usage")
+	}
 
-func (c *TxAttrCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{2}, String, String)
+	data, err := toString(c.RunExprIndexOf(0, vm))
 	if err != nil {
 		return err
 	}
 
-
+	vm.CurTx.Param.Attr = append(vm.CurTx.Param.Attr, goutil.Map{
+		"usage": usage,
+		"data":  data,
+	})
 	return nil
+}
+
+func (c *TxAttrCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{2}, String, String)
 }
 
 //TxInitiatorCmd neo tx fee command
@@ -174,19 +208,22 @@ func (c *TxInitiatorCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-	return nil
-}
-
-func (c *TxInitiatorCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, String)
+	privateKey, err := toString(c.RunExprIndexOf(0, vm))
 	if err != nil {
 		return err
 	}
 
+	vm.CurTx.Param.Initiator = privateKey
 	return nil
 }
 
+func (c *TxInitiatorCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{1}, String)
+}
 
 //TxVoutCmd neo tx vout command
 type TxVoutCmd struct {
@@ -205,17 +242,34 @@ func (c *TxVoutCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
+
+	asset, err := toString(c.RunExprIndexOf(0, vm))
+	if err != nil {
+		return err
+	}
+	address, err := toString(c.RunExprIndexOf(1, vm))
+	if err != nil {
+		return err
+	}
+	value, err := toFloat64(c.RunExprIndexOf(2, vm))
+	if err != nil {
+		return err
+	}
+
+	vm.CurTx.Param.Vout = append(vm.CurTx.Param.Vout, goutil.Map{
+		"asset":   asset,
+		"address": address,
+		"value":   value,
+	})
 	return nil
 }
 
 func (c *TxVoutCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{3}, String, String, Float)
-	if err != nil {
-		return err
-	}
-	return nil
+	return checkExprNumAndType(c.exprList, []int{3}, String, String, Float)
 }
-
 
 //TxInvokeCmd neo tx invoke command
 type TxInvokeCmd struct {
@@ -233,16 +287,19 @@ func (c *TxInvokeCmd) Exec(vm *VM) error {
 	if err != nil {
 		return err
 	}
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-	return nil
-}
-
-func (c *TxInvokeCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, String)
+	invoke, err := toString(c.RunExprIndexOf(0, vm))
 	if err != nil {
 		return err
 	}
-	return nil
+	return vm.CurTx.ParseScript(invoke)
+}
+
+func (c *TxInvokeCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{1}, String)
 }
 
 //TxInvokeScriptCmd neo tx invoke function command
@@ -261,16 +318,19 @@ func (c *TxInvokeFuncCmd) Exec(vm *VM) error {
 	if err != nil {
 		return err
 	}
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-	return nil
-}
-
-func (c *TxInvokeFuncCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, String)
+	invoke, err := toString(c.RunExprIndexOf(0, vm))
 	if err != nil {
 		return err
 	}
-	return nil
+	return vm.CurTx.ParseScript(invoke)
+}
+
+func (c *TxInvokeFuncCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{1}, String)
 }
 
 //TxInvokeScriptCmd neo tx invoke script command
@@ -294,13 +354,8 @@ func (c *TxInvokeScriptCmd) Exec(vm *VM) error {
 }
 
 func (c *TxInvokeScriptCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, String)
-	if err != nil {
-		return err
-	}
-	return nil
+	return checkExprNumAndType(c.exprList, []int{1}, String)
 }
-
 
 //TxWitnessCmd neo tx witness command
 type TxWitnessCmd struct {
@@ -319,17 +374,33 @@ func (c *TxWitnessCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
+
+	witness, err := toString(c.RunExprIndexOf(0, vm))
+	if err != nil {
+		return err
+	}
+
+	var inv string
+	if len(c.exprList) > 1 {
+		inv, err = toString(c.RunExprIndexOf(1, vm))
+		if err != nil {
+			return err
+		}
+	}
+
+	vm.CurTx.Param.Witness = append(vm.CurTx.Param.Witness, goutil.Map{
+		"witness": witness,
+		"inv":     inv,
+	})
 	return nil
 }
 
 func (c *TxWitnessCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1, 2}, String, String)
-	if err != nil {
-		return err
-	}
-	return nil
+	return checkExprNumAndType(c.exprList, []int{1, 2}, String, String)
 }
-
 
 //TxSendCmd send neo tx command
 type TxSendCmd struct {
@@ -348,13 +419,32 @@ func (c *TxSendCmd) Exec(vm *VM) error {
 		return err
 	}
 
-	return nil
-}
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-func (c *TxSendCmd) CheckExpr(varType map[string]string) error {
-	err := checkExprNumAndType(c.exprList, []int{1}, String)
+	node, err := toString(c.RunExprIndexOf(0, vm))
+	if err != nil {
+		return err
+	}
+
+	err = vm.CurTx.Complete(node)
+	if err != nil {
+		return err
+	}
+
+	err = vm.SendTx(node)
+	if err != nil {
+		return err
+	}
+
+	err = vm.WaitTx()
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (c *TxSendCmd) CheckExpr(varType map[string]string) error {
+	return checkExprNumAndType(c.exprList, []int{1}, String)
 }

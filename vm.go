@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hzxiao/goutil"
+	"github.com/hzxiao/neotest/pkg/neo"
 	"strings"
 )
 
@@ -17,6 +18,7 @@ var internalVarMap = goutil.Map{
 		"author":  "hz",
 	},
 	"resp": nil,
+	"tx": nil,
 }
 
 type VM struct {
@@ -24,6 +26,7 @@ type VM struct {
 	commands []Commander
 
 	CurHttpReq *HttpRequest
+	CurTx  *neo.Tx
 }
 
 func NewVM(commands []Commander) *VM {
@@ -113,6 +116,28 @@ func (vm *VM) SendHttp() error {
 
 	//clear cur req
 	vm.CurHttpReq = nil
+	return nil
+}
+
+//SendTx send tx to node
+func (vm *VM) SendTx(node string) error {
+	if vm.CurTx == nil {
+		return fmt.Errorf("tx is nil")
+	}
+
+	err := neo.RelayTx(vm.CurTx, node)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (vm *VM) WaitTx() error {
+	vm.StoreVar("tx", vm.CurTx.ToMap())
+
+	//clear cur tx
+	vm.CurTx = nil
 	return nil
 }
 
