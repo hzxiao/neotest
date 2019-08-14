@@ -139,7 +139,9 @@ func (c *TxFeeCmd) Exec(vm *VM) error {
 	if err != nil {
 		return err
 	}
-	return vm.CurTx.SetFee(fee)
+	vm.CurTx.SetFee(fee)
+
+	return nil
 }
 
 func (c *TxFeeCmd) CheckExpr(varType map[string]string) error {
@@ -217,8 +219,7 @@ func (c *TxInitiatorCmd) Exec(vm *VM) error {
 		return err
 	}
 
-	vm.CurTx.Param.Initiator = privateKey
-	return nil
+	return vm.CurTx.Param.SetInitiator(privateKey)
 }
 
 func (c *TxInitiatorCmd) CheckExpr(varType map[string]string) error {
@@ -259,6 +260,12 @@ func (c *TxVoutCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	switch asset {
+	case "gas":
+		asset = neo.GasAssetHash
+	case "neo":
+		asset = neo.NeoAssetHash
+	}
 	vm.CurTx.Param.Vout = append(vm.CurTx.Param.Vout, goutil.Map{
 		"asset":   asset,
 		"address": address,
