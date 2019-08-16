@@ -3,6 +3,7 @@ package neo
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/CityOfZion/neo-go/pkg/core/transaction"
 	"github.com/CityOfZion/neo-go/pkg/crypto"
@@ -18,7 +19,7 @@ type TxParam struct {
 	Attr      []goutil.Map
 	Initiator *wallet.PrivateKey
 	Vout      []goutil.Map
-	Script    string
+	Script    []byte
 	Witness   []goutil.Map
 }
 
@@ -126,7 +127,60 @@ func (tx *Tx) Complete(node string) error {
 		}
 	}
 
+	//invoke script
+	if len(param.Script) > 0 {
+		tx.Data = &transaction.InvocationTX{Script: param.Script}
+		if tx.Type != transaction.InvocationType {
+			return fmt.Errorf("wrong tx type, should be invocation")
+		}
+	}
 	//attr
+	for _, attr := range param.Attr {
+		tx.Attributes = append(tx.Attributes, &transaction.Attribute{
+			Usage: attrLookup[attr.GetString("usage")],
+			Data:  attr.Get("data").([]byte),
+		})
+	}
+
+	encode, err := tx.EncodeHashableFields()
+	if err != nil {
+		return err
+	}
+
+	//witness
+	for _, witness := range param.Witness {
+		vScript, err := hex.DecodeString(witness.GetString("witness"))
+		if err != nil {
+			return err
+		}
+		var iScript []byte
+		if IsSmartContract(vScript) {
+			if len(witness.GetString("v")) > 0 {
+				iScript, err = hex.DecodeString(witness.GetString("v"))
+				if err != nil {
+					return err
+				}
+			}
+		} else { //private key
+			privateKey, err := wallet.NewPrivateKeyFromBytes(vScript)
+			if err != nil {
+				return err
+			}
+			vScript, _ = PublicKeyScriptFromPrivateKey(privateKey)
+
+			//sign
+			iScript, err = privateKey.Sign(encode)
+			if err != nil {
+				return err
+			}
+		}
+
+		tx.Scripts = append(tx.Scripts, &transaction.Witness{
+			VerificationScript: vScript,
+			InvocationScript:   iScript,
+		})
+	}
+
 	return nil
 }
 
@@ -187,5 +241,24 @@ func (tx *Tx) EncodeHashableFields() ([]byte, error) {
 
 // RelayTx relay tx to the neo node
 func RelayTx(tx *Tx, node string) error {
+	if tx == nil {
+		return fmt.Errorf("tx is nil")
+	}
+
+	tx.Hash()
+	
+	w := new(bytes.Buffer)
+	err := tx.EncodeBinary(w)
+	if err != nil {
+		return err
+	}
+
+	raw := hex.EncodeToString(w.Bytes())
+	var res bool
+	err = Rpc(node, "sendrawtransaction", []string{raw}, &res)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

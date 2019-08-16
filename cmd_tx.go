@@ -1,6 +1,8 @@
 package neotest
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/hzxiao/goutil"
 	"github.com/hzxiao/neotest/pkg/neo"
@@ -177,9 +179,23 @@ func (c *TxAttrCmd) Exec(vm *VM) error {
 		return fmt.Errorf("invalid attr usage")
 	}
 
-	data, err := toString(c.RunExprIndexOf(0, vm))
+	v, err := c.RunExprIndexOf(0, vm)
 	if err != nil {
 		return err
+	}
+
+	var data []byte
+	switch value := v.(type) {
+	case string:
+		data, err = hex.DecodeString(value)
+		if err != nil {
+			data = []byte(value)
+		}
+	case float64:
+		data = make([]byte, 8)
+		binary.LittleEndian.PutUint64(data, uint64(value))
+	default:
+		return fmt.Errorf("unsupport data type")
 	}
 
 	vm.CurTx.Param.Attr = append(vm.CurTx.Param.Attr, goutil.Map{
@@ -390,9 +406,9 @@ func (c *TxWitnessCmd) Exec(vm *VM) error {
 		return err
 	}
 
-	var inv string
+	var v string
 	if len(c.exprList) > 1 {
-		inv, err = toString(c.RunExprIndexOf(1, vm))
+		v, err = toString(c.RunExprIndexOf(1, vm))
 		if err != nil {
 			return err
 		}
@@ -400,7 +416,7 @@ func (c *TxWitnessCmd) Exec(vm *VM) error {
 
 	vm.CurTx.Param.Witness = append(vm.CurTx.Param.Witness, goutil.Map{
 		"witness": witness,
-		"inv":     inv,
+		"v":       v,
 	})
 	return nil
 }
@@ -445,7 +461,7 @@ func (c *TxSendCmd) Exec(vm *VM) error {
 		return err
 	}
 
-	err = vm.WaitTx()
+	err = vm.WaitTx(node)
 	if err != nil {
 		return err
 	}

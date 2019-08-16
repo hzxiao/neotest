@@ -2,7 +2,10 @@ package neo
 
 import (
 	"encoding/hex"
+	"fmt"
+	"github.com/CityOfZion/neo-go/pkg/crypto"
 	"github.com/CityOfZion/neo-go/pkg/util"
+	"github.com/CityOfZion/neo-go/pkg/wallet"
 	"math"
 	"strconv"
 	"strings"
@@ -33,7 +36,7 @@ func (b BigDecimal) ChangeDecimals(decimals uint8) BigDecimal {
 }
 
 func (b BigDecimal) RealValue() float64 {
-	return b.Value/math.Pow10(int(b.Decimals))
+	return b.Value / math.Pow10(int(b.Decimals))
 }
 
 func (b BigDecimal) String() string {
@@ -56,4 +59,33 @@ func IsGlobalAsset(asset string) bool {
 		return false
 	}
 	return len(bs) == 32
+}
+
+func IsSmartContract(vScript []byte) bool {
+	return len(vScript) == 20
+}
+
+//PublicKeyScriptFromPrivateKey
+func PublicKeyScriptFromPrivateKey(privateKey *wallet.PrivateKey) ([]byte, error) {
+	if privateKey == nil {
+		return nil, fmt.Errorf("private key is nil")
+	}
+
+	pub, err := privateKey.PublicKey()
+	if err != nil {
+		return nil, err
+	}
+	return PublicKeyScript(pub), nil
+}
+
+//PublicKeyScript get public key script
+func PublicKeyScript(pk *crypto.PublicKey) []byte {
+	if pk == nil {
+		return nil
+	}
+
+	b := pk.Bytes()
+	b = append([]byte{0x21}, b...)
+	b = append(b, 0xAC)
+	return b
 }

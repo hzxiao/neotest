@@ -6,6 +6,7 @@ import (
 	"github.com/hzxiao/goutil"
 	"github.com/hzxiao/neotest/pkg/neo"
 	"strings"
+	"time"
 )
 
 var (
@@ -18,7 +19,7 @@ var internalVarMap = goutil.Map{
 		"author":  "hz",
 	},
 	"resp": nil,
-	"tx": nil,
+	"tx":   nil,
 }
 
 type VM struct {
@@ -26,7 +27,7 @@ type VM struct {
 	commands []Commander
 
 	CurHttpReq *HttpRequest
-	CurTx  *neo.Tx
+	CurTx      *neo.Tx
 }
 
 func NewVM(commands []Commander) *VM {
@@ -133,8 +134,22 @@ func (vm *VM) SendTx(node string) error {
 	return nil
 }
 
-func (vm *VM) WaitTx() error {
-	vm.StoreVar("tx", vm.CurTx.ToMap())
+func (vm *VM) WaitTx(node string) error {
+	ticker := time.NewTicker(time.Second * 2)
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		var tx goutil.Map
+		err := neo.Rpc(node, "getrawtransaction", []interface{}{vm.CurTx.Hash(), 1}, &tx)
+		if err != nil {
+			if strings.Contains(err.Error(), "Unknown transaction") {
+				continue
+			}
+			return err
+		}
+		vm.StoreVar("tx", tx)
+		break
+	}
 
 	//clear cur tx
 	vm.CurTx = nil

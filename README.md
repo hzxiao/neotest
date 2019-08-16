@@ -151,8 +151,6 @@ tx-invokesscript <Script>
 
 2. 调用脚本，当witness为只能合约的哈希脚本时，该值为验证智能合约的参数；当witness为普通地址的私钥时，该值为空即可。
 
-注：`tx-initiator`命令指定的私钥无需在此处指定。
-
 该命令可以多次声明使用
 
 ```bash
