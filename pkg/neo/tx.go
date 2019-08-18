@@ -10,6 +10,7 @@ import (
 	"github.com/CityOfZion/neo-go/pkg/util"
 	"github.com/CityOfZion/neo-go/pkg/wallet"
 	"github.com/hzxiao/goutil"
+	"github.com/hzxiao/neotest/pkg/pln"
 	"math"
 	"strconv"
 )
@@ -86,7 +87,7 @@ func (tx *Tx) Complete(node string) error {
 		}
 		tx.Inputs = append(tx.Inputs, inputs...)
 		if all > fee { //redundant
-			redundant := Fixed8FromFloat64(all).Sub(param.Fee)
+			redundant := util.Fixed8(Fixed8FromFloat64(all) - Fixed8FromFloat64(fee))
 			asset, _ := util.Uint256DecodeString(GasAssetHash)
 			scripthash, _ := crypto.Uint160DecodeAddress(address)
 			tx.Outputs = append(tx.Outputs, transaction.NewOutput(asset, redundant, scripthash))
@@ -99,7 +100,7 @@ func (tx *Tx) Complete(node string) error {
 		if value <= 0 {
 			continue
 		}
-		all, inputs, err := getReference(out.GetString("asset"), out.GetString("address"), value, node)
+		all, inputs, err := getReference(out.GetString("asset"), address, value, node)
 		if err != nil {
 			return err
 		}
@@ -121,9 +122,9 @@ func (tx *Tx) Complete(node string) error {
 		tx.Outputs = append(tx.Outputs, transaction.NewOutput(asset, amount, to))
 
 		total := BigDecimal{Value: all * math.Pow10(int(d)), Decimals: d}.ToFixed8()
-		if total.GreaterThan(amount) {
+		if total > amount {
 			initiator, _ := crypto.Uint160DecodeAddress(address)
-			tx.Outputs = append(tx.Outputs, transaction.NewOutput(asset, total.Sub(amount), initiator))
+			tx.Outputs = append(tx.Outputs, transaction.NewOutput(asset, util.Fixed8(total-amount), initiator))
 		}
 	}
 
@@ -147,6 +148,7 @@ func (tx *Tx) Complete(node string) error {
 		return err
 	}
 
+	pln.InfoVerbose("tx-raw-without-witness: %v", hex.EncodeToString(encode))
 	//witness
 	for _, witness := range param.Witness {
 		vScript, err := hex.DecodeString(witness.GetString("witness"))
@@ -173,6 +175,7 @@ func (tx *Tx) Complete(node string) error {
 			if err != nil {
 				return err
 			}
+			iScript = EmitPushBytes(iScript)
 		}
 
 		tx.Scripts = append(tx.Scripts, &transaction.Witness{
@@ -246,7 +249,7 @@ func RelayTx(tx *Tx, node string) error {
 	}
 
 	tx.Hash()
-	
+
 	w := new(bytes.Buffer)
 	err := tx.EncodeBinary(w)
 	if err != nil {

@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func init()  {
+	verbose = true
+}
+
 func TestRun(t *testing.T)  {
 	err := run([]string{"../testdata/echo.ntf"})
 	assert.NoError(t, err)
@@ -55,5 +59,10 @@ func TestReqCmd(t *testing.T)  {
 
 	time.Sleep(2*time.Second)
 	err := run([]string{"../testdata/http.ntf"})
+	assert.NoError(t, err)
+}
+
+func TestTx(t *testing.T)  {
+	err := run([]string{"../testdata/tx.ntf"})
 	assert.NoError(t, err)
 }

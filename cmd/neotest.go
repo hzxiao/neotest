@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"github.com/hzxiao/neotest"
+	"github.com/hzxiao/neotest/pkg/pln"
 	"github.com/spf13/cobra"
 )
+
+var verbose bool
 
 func main() {
 	root := &cobra.Command{
@@ -16,15 +19,18 @@ func main() {
 			}
 			err := run(args)
 			if err != nil {
-				fmt.Println(err)
+				pln.Error(err)
 			}
 		},
 	}
+	root.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose")
 
 	root.Execute()
 }
 
 func run(files []string) error {
+	pln.Verbose = verbose
+
 	for _, file := range files {
 		src, err := neotest.NewSource(file)
 		if err != nil {

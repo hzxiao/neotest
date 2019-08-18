@@ -86,6 +86,8 @@ func (src *Source) ParseCmd(text string, sub bool) (Commander, error) {
 			cmd = NewTxVCmd(src.curLine)
 		case "tx-type":
 			cmd = NewTxTypeCmd(src.curLine)
+		case "tx-fee":
+			cmd = NewTxFeeCmd(src.curLine)
 		case "tx-attr":
 			cmd = NewTxAttrCmd(src.curLine)
 		case "tx-initiator":

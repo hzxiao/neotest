@@ -1,11 +1,13 @@
 package neo
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/CityOfZion/neo-go/pkg/crypto"
 	"github.com/CityOfZion/neo-go/pkg/util"
 	"github.com/CityOfZion/neo-go/pkg/wallet"
+	"github.com/hzxiao/neo-thinsdk-go/utils"
 	"math"
 	"strconv"
 	"strings"
@@ -88,4 +90,27 @@ func PublicKeyScript(pk *crypto.PublicKey) []byte {
 	b = append([]byte{0x21}, b...)
 	b = append(b, 0xAC)
 	return b
+}
+
+func EmitPushBytes(bys []byte) []byte {
+	buf := &bytes.Buffer{}
+	length := len(bys)
+	if length <= int(PUSHBYTES75) {
+		buf.WriteByte(byte(length))
+		buf.Write(bys)
+	} else if length < 0x100 {
+		buf.WriteByte(PUSHDATA1)
+		buf.WriteByte(byte(length))
+		buf.Write(bys)
+	} else if length < 0x10000 {
+		buf.WriteByte(PUSHDATA2)
+		utils.WriteUint16(buf, uint16(length))
+		buf.Write(bys)
+	} else {
+		buf.WriteByte(PUSHDATA4)
+		utils.WriteUint32(buf, uint32(length))
+		buf.Write(bys)
+	}
+
+	return buf.Bytes()
 }
