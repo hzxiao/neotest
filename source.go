@@ -239,6 +239,7 @@ func splitExpr(data []byte, atEOF bool) (advance int, token []byte, err error) {
 
 	var findEndpoint = func(c byte) (int, []byte, bool) {
 		if i := bytes.IndexByte(token, c); i >= 0 {
+			i = bytes.IndexByte(data, c)
 			for j := i + 1; j < len(data); j++ {
 				if data[j] == c {
 					return j + 1, data[i : j+1], true

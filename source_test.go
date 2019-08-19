@@ -25,6 +25,8 @@ func TestSplitExpr(t *testing.T) {
 	assert.Equal(t, []string{"let", "@host", "`env HOST`"}, splitRawExpr("let @host `env HOST`"))
 	assert.Equal(t, []string{"echo", "1", `"2 3"`}, splitRawExpr(`echo 1 "2 3"`))
 	assert.Equal(t, []string{"let", "@a", "`base64 \"abc$(v)\"`"}, splitRawExpr("let @a `base64 \"abc$(v)\"`"))
+
+	assert.Equal(t, []string{"echo", `"a"`, `"b"`, "2"}, splitRawExpr(`echo "a" "b" 2`))
 }
 
 func splitRawExpr(text string) []string {
