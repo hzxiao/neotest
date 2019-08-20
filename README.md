@@ -91,16 +91,26 @@ tx-vout <asset_hash> <address> <value>
 
 #### tx-invoke
 
-使用给定的参数以散列值调用智能合约，接收一个json数组。
+使用给定的参数以散列值调用智能合约，接收一个json数组，方便构造自定义脚本。数组元素为构建执行脚本参数。
+包含`type`和`value`两个字段；`type`支持以下类型：
 
-scripthash：智能合约脚本散列值。
-
-params：传递给智能合约的参数。
+* Boolean
+* Integer
+* Hash160
+* Hash256
+* String
+* Array
+* AppCall
+* Address
+* OpCode
 
 ```bash
 tx-invoke '[
-"dc675afc61a7c0f7b3d2682bf6e1d8ed865a0e5f",
 [
+  {
+    "type": "AppCall",
+    "value": "dc675afc61a7c0f7b3d2682bf6e1d8ed865a0e5f"
+  },
   {
     "type": "String",
     "value": "name"
@@ -121,6 +131,16 @@ scripthash：智能合约脚本散列值。
 operation：操作名称（字符串）。
 
 params：传递给智能合约操作的参数。
+  `type`字段支持以下类型：
+* Boolean
+* Integer
+* Hash160
+* Hash256
+* String
+* Array
+* AppCall
+* Address
+* OpCode
 
 ```bash
 tx-invokefunc '[

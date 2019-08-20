@@ -4,3 +4,7 @@ let @path `env $(env_key)`
 echo $(path)
 
 echo `env "PATH"`
+
+let @addr "AdP3gUNRXqg4EVVSQD4o1i3kfF9DmNQSw1"
+
+echo `addr2scripthash $(addr)`

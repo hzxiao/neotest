@@ -3,6 +3,7 @@ package neotest
 import (
 	"fmt"
 	"github.com/hzxiao/goutil"
+	"github.com/hzxiao/neotest/pkg/neo"
 	"os"
 )
 
@@ -80,5 +81,41 @@ func (env *EnvSubCmd) CheckExpr(varType map[string]string) error {
 	if len(env.exprList) != 1 {
 		return fmt.Errorf("num of expr must be 1, but it is %v", len(env.exprList))
 	}
+	return nil
+}
+
+type Addr2ScriptHashSubCmd struct {
+	SubCmd
+}
+
+func NewAddr2ScriptHashSubCmd(line int) *Addr2ScriptHashSubCmd {
+	return &Addr2ScriptHashSubCmd{
+		SubCmd{
+			Cmd:     NewCmd("addr2scripthash", "convert address to script hash", line),
+			varExpr: &varExpr{},
+		},
+	}
+}
+
+func (sc *Addr2ScriptHashSubCmd) Run(vm *VM) (interface{}, error) {
+	err := checkExprNumAndType(sc.exprList, []int{1}, String)
+	if err != nil {
+		return nil, err
+	}
+
+	v, err := toString(sc.RunExprIndexOf(0, vm))
+	if err != nil {
+		return nil, err
+	}
+
+	return neo.Address2ScriptHash(v)
+}
+
+func (sc *Addr2ScriptHashSubCmd) CheckExpr(varType map[string]string) error {
+	err := checkExprNumAndType(sc.exprList, []int{1}, String)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -3,9 +3,11 @@ package neotest
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/hzxiao/goutil"
 	"github.com/hzxiao/neotest/pkg/neo"
+	"github.com/hzxiao/neotest/pkg/pln"
 )
 
 //TxCmd declare neo tx command
@@ -179,11 +181,10 @@ func (c *TxAttrCmd) Exec(vm *VM) error {
 		return fmt.Errorf("invalid attr usage")
 	}
 
-	v, err := c.RunExprIndexOf(0, vm)
+	v, err := c.RunExprIndexOf(1, vm)
 	if err != nil {
 		return err
 	}
-
 	var data []byte
 	switch value := v.(type) {
 	case string:
@@ -318,7 +319,7 @@ func (c *TxInvokeCmd) Exec(vm *VM) error {
 	if err != nil {
 		return err
 	}
-	return vm.CurTx.ParseScript(invoke)
+	return vm.CurTx.ParseInvoke(invoke)
 }
 
 func (c *TxInvokeCmd) CheckExpr(varType map[string]string) error {
@@ -349,7 +350,7 @@ func (c *TxInvokeFuncCmd) Exec(vm *VM) error {
 	if err != nil {
 		return err
 	}
-	return vm.CurTx.ParseScript(invoke)
+	return vm.CurTx.ParseInvokeFunc(invoke)
 }
 
 func (c *TxInvokeFuncCmd) CheckExpr(varType map[string]string) error {
@@ -372,8 +373,21 @@ func (c *TxInvokeScriptCmd) Exec(vm *VM) error {
 	if err != nil {
 		return err
 	}
+	if vm.CurTx == nil {
+		return fmt.Errorf("there is no declare a tx before")
+	}
 
-	return nil
+	script, err := toString(c.RunExprIndexOf(0, vm))
+	if err != nil {
+		return err
+	}
+
+	if len(vm.CurTx.Param.Script) > 0 {
+		return fmt.Errorf("script is already exitsted")
+	}
+
+	vm.CurTx.Param.Script, err = hex.DecodeString(script)
+	return err
 }
 
 func (c *TxInvokeScriptCmd) CheckExpr(varType map[string]string) error {
@@ -456,11 +470,16 @@ func (c *TxSendCmd) Exec(vm *VM) error {
 		return err
 	}
 
+	s, _ := json.MarshalIndent(vm.CurTx.ToMap(), "", "  ")
+	pln.InfoVerbose("tx %v: %v", vm.CurTx.Label(), string(s))
+
+	pln.InfoVerbose("send tx %v to %v", vm.CurTx.Label(), node)
 	err = vm.SendTx(node)
 	if err != nil {
 		return err
 	}
 
+	pln.InfoVerbose("wait for tx %v...", vm.CurTx.Label())
 	err = vm.WaitTx(node)
 	if err != nil {
 		return err

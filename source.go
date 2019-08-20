@@ -111,6 +111,8 @@ func (src *Source) ParseCmd(text string, sub bool) (Commander, error) {
 		switch cmdName {
 		case "env":
 			cmd = NewEnvSubCmd(src.curLine)
+		case "addr2scripthash":
+			cmd = NewAddr2ScriptHashSubCmd(src.curLine)
 		default:
 			return nil, fmt.Errorf("unknown sub cmd: %v", cmdName)
 		}

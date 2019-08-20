@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/CityOfZion/neo-go/pkg/core/transaction"
 	"github.com/CityOfZion/neo-go/pkg/crypto"
 	"github.com/CityOfZion/neo-go/pkg/util"
 	"github.com/CityOfZion/neo-go/pkg/wallet"
 	"github.com/hzxiao/goutil"
-	"github.com/hzxiao/neotest/pkg/pln"
 	"math"
 	"strconv"
 )
@@ -44,6 +44,13 @@ func NewTx(name string) *Tx {
 	return &Tx{Transaction: transaction.Transaction{}, Name: name, Param: &TxParam{}}
 }
 
+func (tx *Tx) Label() string {
+	if tx.Name != "" {
+		return tx.Name
+	}
+	return tx.Hash().String()
+}
+
 func (tx *Tx) SetType(typ string) error {
 	switch typ {
 	case "contract":
@@ -61,7 +68,76 @@ func (tx *Tx) SetFee(fee float64) {
 	tx.Param.Fee = Fixed8FromFloat64(fee)
 }
 
-func (tx *Tx) ParseScript(raw string) error {
+func (tx *Tx) ParseInvoke(raw string) error {
+	if len(tx.Param.Script) > 0 {
+		return fmt.Errorf("script is already exitsted")
+	}
+
+	var items []goutil.Map
+	err := json.Unmarshal([]byte(raw), &items)
+	if err != nil {
+		return err
+	}
+
+	var params []*ScriptParam
+	for i := len(items) - 1; i >= 0; i-- {
+		item := items[i]
+		typ, ok := ParamTypeLookup[item.GetString("type")]
+		if !ok {
+			return fmt.Errorf("unsupport param type: %v", item.GetString("type"))
+		}
+
+		params = append(params, &ScriptParam{
+			Type:  typ,
+			Value: item.Get("value"),
+		})
+	}
+	sb := NewScriptBuilder()
+	err = sb.EmitParams(params)
+	if err != nil {
+		return err
+	}
+	tx.Param.Script = sb.Bytes()
+	return nil
+}
+
+func (tx *Tx) ParseInvokeFunc(raw string) error {
+	if len(tx.Param.Script) > 0 {
+		return fmt.Errorf("script is already exitsted")
+	}
+
+	var items []interface{}
+	err := json.Unmarshal([]byte(raw), &items)
+	if err != nil {
+		return err
+	}
+
+	var params []*ScriptParam
+	args := &ScriptParam{
+		Type:  ArrayType,
+		Value: nil,
+	}
+	if len(items) >= 3 {
+		args.Value = goutil.MapArrayV(items[2])
+	}
+
+	if len(items) < 2 {
+		return fmt.Errorf("not enough arguments to invoke function")
+	}
+
+	params = append(params, args, &ScriptParam{
+		Type:  StringType,
+		Value: items[1],
+	}, &ScriptParam{
+		Type:  AppCallType,
+		Value: items[0],
+	})
+	sb := NewScriptBuilder()
+	err = sb.EmitParams(params)
+	if err != nil {
+		return err
+	}
+	tx.Param.Script = sb.Bytes()
 	return nil
 }
 
@@ -148,7 +224,6 @@ func (tx *Tx) Complete(node string) error {
 		return err
 	}
 
-	pln.InfoVerbose("tx-raw-without-witness: %v", hex.EncodeToString(encode))
 	//witness
 	for _, witness := range param.Witness {
 		vScript, err := hex.DecodeString(witness.GetString("witness"))
@@ -175,7 +250,12 @@ func (tx *Tx) Complete(node string) error {
 			if err != nil {
 				return err
 			}
-			iScript = EmitPushBytes(iScript)
+			sb := NewScriptBuilder()
+			err = sb.EmitBytes(iScript)
+			if err != nil {
+				return err
+			}
+			iScript = sb.Bytes()
 		}
 
 		tx.Scripts = append(tx.Scripts, &transaction.Witness{
@@ -188,7 +268,27 @@ func (tx *Tx) Complete(node string) error {
 }
 
 func (tx *Tx) ToMap() goutil.Map {
-	return nil
+	m := goutil.Struct2Map(tx)
+	if m == nil {
+		return m
+	}
+	delete(m, "Param")
+	delete(m, "Name")
+	if tx.Type == transaction.InvocationType {
+		var script string
+		var fee float64
+		inv, ok := tx.Data.(*transaction.InvocationTX)
+		if ok && inv != nil {
+			script = hex.EncodeToString(inv.Script)
+			fee = float64(inv.Gas) / 8
+		}
+		m.Set("script", script)
+		m.Set("gas", fee)
+	}
+	m.Set("txid", tx.Hash())
+	m.Set("size", tx.Size())
+	m.Set("net_fee", strconv.FormatFloat(float64(tx.Param.Fee)/8, 'f', -1, 64))
+	return m
 }
 
 // EncodeHashableFields will only encode the fields that are not used for

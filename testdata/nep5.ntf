@@ -1,0 +1,42 @@
+
+let @node "http://future.otcgo.cn:20332"
+
+let @from "AdP3gUNRXqg4EVVSQD4o1i3kfF9DmNQSw1"
+let @pk "6695b463341ff2edc95c7ece6e15b683b0c23d9858d9bf69b699e1757f1ecd3a"
+
+let @to "AWSuQXpjuY3v22gCbEFL2vHbSLMMVK1QD6"
+
+tx "transfer-nep5"
+
+tx-v 1
+tx-fee 0
+tx-type "invocation"
+
+tx-initiator $(pk)
+
+tx-attr "Script" `addr2scripthash $(from)`
+
+tx-invokefunc '[
+   "0x02196f55f618cfb34e80bed272f2f3faaeba131e",
+   "transfer",
+   [
+     {
+       "type": "Address",
+       "value": "$(from)"
+     },
+     {
+        "type": "Address",
+        "value": "$(to)"
+     },
+     {
+         "type": "Integer",
+         "value": 1
+     }
+   ]
+]'
+
+tx-witness $(pk)
+
+tx-send $(node)
+
+echo $(tx.txid)

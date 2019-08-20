@@ -1,0 +1,23 @@
+
+let @node "http://future.otcgo.cn:20332"
+
+let @pk "6695b463341ff2edc95c7ece6e15b683b0c23d9858d9bf69b699e1757f1ecd3a"
+
+let @addr "AdP3gUNRXqg4EVVSQD4o1i3kfF9DmNQSw1"
+
+let @to "AWSuQXpjuY3v22gCbEFL2vHbSLMMVK1QD6"
+tx "transfer-neo"
+
+tx-v 0
+tx-fee 0
+tx-type "contract"
+
+tx-initiator $(pk)
+
+tx-vout "neo" $(to) 1
+
+tx-witness $(pk)
+
+tx-send $(node)
+
+echo $(tx.txid)

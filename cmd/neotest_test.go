@@ -66,3 +66,8 @@ func TestTx(t *testing.T)  {
 	err := run([]string{"../testdata/tx.ntf"})
 	assert.NoError(t, err)
 }
+
+func TestNep5(t *testing.T)  {
+	err := run([]string{"../testdata/nep5.ntf"})
+	assert.NoError(t, err)
+}

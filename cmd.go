@@ -58,7 +58,7 @@ func (c *Cmd) CheckExpr(varType map[string]string) error {
 	return nil
 }
 
-func (c *Cmd) RunExprIndexOf(index int, vm *VM) (interface{}, error)  {
+func (c *Cmd) RunExprIndexOf(index int, vm *VM) (interface{}, error) {
 	return c.exprList[index].Run(vm)
 }
 
@@ -71,8 +71,16 @@ func checkExprNumAndType(exprList []ExprNode, num []int, types ...ExprType) erro
 				return fmt.Errorf("length of types must >= num")
 			}
 			for i := range exprList {
-				if exprList[i].Type() != types[i] {
-					return fmt.Errorf("index of expr at %v must be %v", i, types[i].String())
+				switch exprList[i].Type() {
+				case SubCommand:
+					expect, actual := types[i].String(), exprList[i].(Resultant).ResultType()
+					if expect != actual {
+						return fmt.Errorf("index of expr at %v must be %v", i, types[i].String())
+					}
+				default:
+					if exprList[i].Type() != types[i] {
+						return fmt.Errorf("index of expr at %v must be %v", i, types[i].String())
+					}
 				}
 			}
 			return nil
